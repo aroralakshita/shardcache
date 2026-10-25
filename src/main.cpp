@@ -3,9 +3,7 @@
 
 #include "cache/store.h"
 
-// Prints the result of looking up `key`. Takes the store by const reference:
-// no copy is made, and this function promises not to modify it.
-void print_lookup(const shardcache::Store& store, const std::string& key) {
+void print_lookup(shardcache::Store& store, const std::string& key) {
     std::optional<std::string> value = store.get(key);
     if (value.has_value()) {
         std::cout << "GET " << key << " -> " << *value << "\n";
@@ -15,14 +13,14 @@ void print_lookup(const shardcache::Store& store, const std::string& key) {
 }
 
 int main() {
-    shardcache::Store store;
+    shardcache::Store store(100);
 
     store.set("user:1", "alice");
     store.set("user:2", "bob");
     print_lookup(store, "user:1");
     print_lookup(store, "user:3");
 
-    store.set("user:1", "alicia");  // overwrite
+    store.set("user:1", "alicia");
     print_lookup(store, "user:1");
 
     std::cout << "DELETE user:2 -> " << (store.remove("user:2") ? "removed" : "absent") << "\n";
