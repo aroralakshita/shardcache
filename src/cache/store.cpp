@@ -2,27 +2,42 @@
 
 namespace shardcache {
 
-Store::Store(std::size_t capacity) : capacity_(capacity) {}
+Store::Store(std::size_t capacity, NowFn now) : capacity_(capacity), now_(now) {}
 
-void Store::set(const std::string& key, const std::string& value) {
+bool Store::is_expired(const Entry& entry) const {
+    if (!entry.expires_at.has_value()) {
+        return false;
+    }
+
+    return now_() > *entry.expires_at;
+}
+
+void Store::set(const std::string& key, const std::string& value,
+                std::optional<std::chrono::milliseconds> ttl) {
     if (capacity_ == 0) {
         return;
     }
 
+    std::optional<Store::TimePoint> deadline;
+    if (ttl.has_value()) {
+        deadline = now_() + *ttl;
+    }
+
     auto it = index_.find(key);
     if (it != index_.end()) {
-        it-> second->second = value;
+        it-> second->value= value;
+        it->second->expires_at = deadline;
         order_.splice(order_.begin(), order_, it->second);
         return;
     }
 
     //case b:new key
     if (order_.size() == capacity_) {
-        index_.erase(order_.back().first);
+        index_.erase(order_.back().key);
         order_.pop_back();
     }
     
-    order_.push_front({key, value});
+    order_.push_front({key, value, deadline});
     index_[key] = order_.begin();
 }
 
@@ -32,8 +47,14 @@ std::optional<std::string> Store::get(const std::string& key) {
         return std::nullopt;
     }
 
+    if (is_expired(*it->second)) {
+        remove(key);
+        return std::nullopt;
+
+    }
+
     order_.splice(order_.begin(), order_, it->second);
-    return it->second->second;
+    return it->second->value;
 }
 
 bool Store::remove(const std::string& key) {

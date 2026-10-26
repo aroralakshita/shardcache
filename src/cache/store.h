@@ -1,21 +1,28 @@
 #pragma once
 
+#include <chrono>
 #include <cstddef>
+#include <functional>
 #include <list>
 #include <optional>
 #include <string>
 #include <unordered_map>
-#include <utility>
 
 namespace shardcache {
 
-// a single-node, in-memory key-value store with LRU eviction.
+// a single-node, in-memory key-value store with LRU eviction and lazy TTL expiry
 
 class Store {
 public:
-    explicit Store(std::size_t capacity);
+    using Clock = std::chrono::steady_clock;
+    using TimePoint = Clock::time_point;
 
-    void set(const std::string& key, const std::string& value);
+    using NowFn = std::function<TimePoint()>;
+
+    explicit Store(std::size_t capacity, NowFn now = Clock::now);
+
+    void set(const std::string& key, const std::string& value,
+             std::optional<std::chrono::milliseconds> ttl = std::nullopt);
 
     std::optional<std::string> get(const std::string& key);
 
@@ -24,9 +31,16 @@ public:
     std::size_t size() const;
 
 private:
-    using Entry = std::pair<std::string, std::string>;
+    struct Entry {
+        std::string key;
+        std::string value;
+        std::optional<TimePoint> expires_at;
+    };
+
+    bool is_expired(const Entry& entry) const;
 
     std::size_t capacity_;
+    NowFn now_;
 
     std::list<Entry> order_;
 
