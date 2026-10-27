@@ -7,6 +7,7 @@
 #include <optional>
 #include <string>
 #include <unordered_map>
+#include <mutex>
 
 namespace shardcache {
 
@@ -45,6 +46,12 @@ private:
     std::list<Entry> order_;
 
     std::unordered_map<std::string, std::list<Entry>::iterator> index_;
-};
 
+    mutable std::mutex mutex_;
+
+    bool remove_locked(const std::string& key);
+    
+
+
+};
 }

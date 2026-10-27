@@ -75,3 +75,24 @@ TEST(ServerTest, FramingHandlesBatchedAndSplitCommands) {
 
     server_thread.join();
 }
+
+TEST(ServerTest, TwoClientsAreServedAtTheSameTime) {
+    Store store(100);
+    Server server(0, store);
+    std::thread worker_a([&server] { server.serve_one_client(); });
+    std::thread worker_b([&server] { server.serve_one_client(); });
+
+    {
+        net::Socket a = net::Socket::connect_to("127.0.0.1", server.port());
+        net::LineReader reader_a(a);
+        EXPECT_EQ(request(a, reader_a, "SET k hello"), "OK");
+
+        net::Socket b = net::Socket::connect_to("127.0.0.1", server.port());
+        net::LineReader reader_b(b);
+        EXPECT_EQ(request(b, reader_b, "GET k"), "VALUE hello");
+        EXPECT_EQ(request(a, reader_a, "GET k"), "VALUE hello");
+    }
+
+    worker_a.join();
+    worker_b.join();
+}

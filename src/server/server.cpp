@@ -4,6 +4,8 @@
 #include <iostream>
 #include <optional>
 #include <string>
+#include <thread>
+#include <utility>
 
 #include "net/line_reader.h"
 #include "protocol/protocol.h"
@@ -20,6 +22,10 @@ std::uint16_t Server::port() const {
 
 void Server::serve_one_client() {
     net::Socket client = listener_.accept();
+    serve_client(client);
+}
+
+void Server::serve_client(net::Socket& client) {
     try {
         net::LineReader reader(client);
         while (true) {
@@ -40,7 +46,8 @@ void Server::serve_one_client() {
 
 void Server::run() {
     while (true) {
-        serve_one_client();
+        net::Socket client = listener_.accept();
+        std::thread([this, c = std::move(client)]() mutable { serve_client(c); }).detach();
     }
 }
 

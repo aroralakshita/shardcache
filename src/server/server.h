@@ -18,6 +18,8 @@ public:
     void run();
 
 private:
+    void serve_client(net::Socket& client);
+
     net::Socket listener_;
     Store& store_;
 };

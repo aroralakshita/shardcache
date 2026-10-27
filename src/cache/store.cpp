@@ -14,6 +14,7 @@ bool Store::is_expired(const Entry& entry) const {
 
 void Store::set(const std::string& key, const std::string& value,
                 std::optional<std::chrono::milliseconds> ttl) {
+    std::lock_guard<std::mutex> lock(mutex_);                
     if (capacity_ == 0) {
         return;
     }
@@ -42,13 +43,14 @@ void Store::set(const std::string& key, const std::string& value,
 }
 
 std::optional<std::string> Store::get(const std::string& key) {
+    std::lock_guard<std::mutex> lock(mutex_);
     auto it = index_.find(key);
     if (it == index_.end()) {
         return std::nullopt;
     }
 
     if (is_expired(*it->second)) {
-        remove(key);
+        remove_locked(key);
         return std::nullopt;
 
     }
@@ -57,7 +59,7 @@ std::optional<std::string> Store::get(const std::string& key) {
     return it->second->value;
 }
 
-bool Store::remove(const std::string& key) {
+bool Store::remove_locked(const std::string& key) {
     auto it = index_.find(key);
     if (it == index_.end()) {
         return false;
@@ -69,7 +71,12 @@ bool Store::remove(const std::string& key) {
 }
 
 std::size_t Store::size() const {
+    std::lock_guard<std::mutex> lock(mutex_);
     return order_.size();
 }
 
+bool Store::remove(const std::string& key) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return remove_locked(key);
+}
 }
