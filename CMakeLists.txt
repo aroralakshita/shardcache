@@ -53,6 +53,7 @@ add_executable(shardcache_tests
   tests/test_store.cpp
   tests/test_protocol.cpp
   tests/test_server.cpp
+  tests/test_concurrency.cpp
 )
 target_link_libraries(shardcache_tests PRIVATE shardcache_core GTest::gtest_main)
 shardcache_warnings(shardcache_tests)
