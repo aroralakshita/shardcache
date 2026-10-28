@@ -17,6 +17,7 @@ add_library(shardcache_core
   src/net/socket.cpp
   src/net/line_reader.cpp
   src/protocol/protocol.cpp
+  src/ring/hash_ring.cpp
   src/server/execute.cpp
   src/server/server.cpp
 )
@@ -54,6 +55,7 @@ add_executable(shardcache_tests
   tests/test_protocol.cpp
   tests/test_server.cpp
   tests/test_concurrency.cpp
+  tests/test_hash_ring.cpp
 )
 target_link_libraries(shardcache_tests PRIVATE shardcache_core GTest::gtest_main)
 shardcache_warnings(shardcache_tests)
