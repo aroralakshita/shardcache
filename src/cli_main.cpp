@@ -1,36 +1,32 @@
-#include <cstdint>
 #include <exception>
 #include <iostream>
-#include <optional>
 #include <string>
+#include <vector>
 
-#include "net/line_reader.h"
-#include "net/socket.h"
+#include "protocol/protocol.h"
+#include "router/router.h"
 
 int main(int argc, char* argv[]) {
     try {
-        std::string host = "127.0.0.1";
-        std::uint16_t port = 7000;
-        if (argc > 1) {
-            host = argv[1];
+        std::vector<std::string> nodes;
+        for (int i = 1; i < argc; ++i) {
+            nodes.push_back(argv[i]);
         }
-        if (argc > 2) {
-            port = static_cast<std::uint16_t>(std::stoi(argv[2]));
+        if (nodes.empty()) {
+            nodes.push_back("127.0.0.1:7000");
         }
 
-        shardcache::net::Socket connection = shardcache::net::Socket::connect_to(host, port);
-        shardcache::net::LineReader reader(connection);
-        std::cout << "connected to " << host << ":" << port << "\n> " << std::flush;
+        shardcache::Router router(nodes);
+        std::cout << "connected to " << nodes.size() << " node(s)\n> " << std::flush;
 
         std::string line;
         while (std::getline(std::cin, line)) {
-            connection.send_all(line + "\n");
-            std::optional<std::string> response = reader.read_line();
-            if (!response.has_value()) {
-                std::cout << "server closed the connection\n";
-                break;
+            std::string reply = router.request(line);
+            shardcache::ParseResult parsed = shardcache::parse_command(line);
+            if (parsed.command.has_value()) {
+                std::cout << "[" << router.owner_of(parsed.command->key).value_or("?") << "] ";
             }
-            std::cout << *response << "\n> " << std::flush;
+            std::cout << reply << "\n> " << std::flush;
         }
     } catch (const std::exception& e) {
         std::cerr << "error: " << e.what() << "\n";
