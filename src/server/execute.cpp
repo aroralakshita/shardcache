@@ -27,6 +27,10 @@ std::string execute(const Command& command, Store& store) {
 
     }
 
+    if (command.type == CommandType::Ping) {
+        return "PONG";
+    }
+
     return "ERROR unknown command";
 }
 

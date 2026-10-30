@@ -61,6 +61,14 @@ ParseResult parse_command(std::string_view line) {
     std::string name = to_upper(parts[0]);
     Command command;
 
+    if (name == "PING") {
+        if (parts.size() != 1) {
+            return fail("usage: PING");
+        }
+        command.type = CommandType::Ping;
+        return ParseResult{command, ""};
+    }
+
     if (name == "GET" || name == "DEL") {
         if (parts.size() != 2) {
             return fail("usage: " + name + " <key>");

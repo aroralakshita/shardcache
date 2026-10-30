@@ -7,7 +7,7 @@
 
 namespace shardcache {
 
-enum class CommandType { Get, Set, Del };
+enum class CommandType { Get, Set, Del, Ping };
 
 struct Command {
     CommandType type = CommandType::Get;

@@ -90,3 +90,10 @@ TEST(ParserTest, BadTtlValues) {
     expect_error("SET a 1 abc");
     expect_error("SET a 1 999999999999");
 }
+
+TEST(ParserTest, Ping) {
+    ParseResult r = parse_command("ping");
+    ASSERT_TRUE(r.command.has_value());
+    EXPECT_EQ(r.command->type, CommandType::Ping);
+    expect_error("PING extra");
+}
