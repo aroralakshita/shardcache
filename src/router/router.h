@@ -1,5 +1,6 @@
 #pragma once
 
+#include <chrono>
 #include <map>
 #include <memory>
 #include <optional>
@@ -10,6 +11,7 @@
 #include "net/line_reader.h"
 #include "net/socket.h"
 #include "ring/hash_ring.h"
+#include "router/failure_detector.h"
 
 namespace shardcache {
 
@@ -24,6 +26,12 @@ public:
 
     std::vector<std::string> replicas_of(const std::string& key) const;
 
+    void enable_failure_detection(std::chrono::milliseconds interval, int misses_to_fail);
+
+    bool is_alive(const std::string& node) const;
+
+    std::vector<std::string> live_replicas_of(const std::string& key) const;
+
 private:
     struct Connection {
         explicit Connection(net::Socket s) : socket(std::move(s)), reader(socket) {}
@@ -37,6 +45,8 @@ private:
     HashRing ring_;
 
     std::map<std::string, std::unique_ptr<Connection>> connections_;
+
+    std::unique_ptr<FailureDetector> detector_;
 };
 
 }

@@ -5,22 +5,11 @@
 #include <stdexcept>
 
 #include "protocol/protocol.h"
+#include "router/address.h"
 
 namespace shardcache {
 
 namespace {
-
-std::pair<std::string, std::uint16_t> split_address(const std::string& address) {
-    std::size_t colon = address.rfind(':');
-    if (colon == std::string::npos) {
-        throw std::invalid_argument("expected host:port, got '" + address + "'");
-    }
-    int port = std::stoi(address.substr(colon + 1));
-    if (port <= 0 || port > 65535) {
-        throw std::invalid_argument("bad port in '" + address + "'");
-    }
-    return {address.substr(0, colon), static_cast<std::uint16_t>(port)};
-}
 
 bool is_error(const std::string& reply) {
     return reply.rfind("ERROR", 0) == 0;
@@ -47,6 +36,33 @@ std::vector<std::string> Router::replicas_of(const std::string& key) const {
     return ring_.get_nodes(key, replication_factor_);
 }
 
+void Router::enable_failure_detection(std::chrono::milliseconds interval, int misses_to_fail) {
+    std::vector<std::string> nodes;
+    for (const auto& entry : connections_) {
+        nodes.push_back(entry.first);
+    }
+    detector_ = std::make_unique<FailureDetector>(nodes, interval, misses_to_fail);
+    detector_->start();
+}
+
+bool Router::is_alive(const std::string& node) const {
+    return detector_ == nullptr || detector_->is_alive(node); 
+}
+
+std::vector<std::string> Router::live_replicas_of(const std::string& key) const {
+    std::vector<std::string> preference = ring_.get_nodes(key, ring_.node_count());
+    std::vector<std::string> live;
+    for (const std::string& node : preference) {
+        if (is_alive(node)) {
+            live.push_back(node);
+        }
+
+        if (live.size() == replication_factor_) {
+            break;
+        }
+    } return live;
+}
+
 std::string Router::send_to(const std::string& node, const std::string& line) {
     auto it = connections_.find(node);
     if (it == connections_.end()) {
@@ -71,9 +87,9 @@ std::string Router::request(const std::string& line) {
         return "ERROR " + parsed.error;
     }
 
-    std::vector<std::string> replicas = replicas_of(parsed.command->key);
+    std::vector<std::string> replicas = live_replicas_of(parsed.command->key);
     if (replicas.empty()) {
-        return "ERROR no nodes";
+        return "ERROR no live nodes";
     }
 
     if (parsed.command->type == CommandType::Get) {

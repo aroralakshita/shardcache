@@ -17,6 +17,7 @@ int main(int argc, char* argv[]) {
         }
 
         shardcache::Router router(nodes);
+        router.enable_failure_detection(std::chrono::milliseconds(1000), 3);
         std::cout << "connected to " << nodes.size() << " node(s)\n> " << std::flush;
 
         std::string line;
@@ -24,7 +25,11 @@ int main(int argc, char* argv[]) {
             std::string reply = router.request(line);
             shardcache::ParseResult parsed = shardcache::parse_command(line);
             if (parsed.command.has_value()) {
-                std::cout << "[" << router.owner_of(parsed.command->key).value_or("?") << "] ";
+                std::cout << "[";
+                for (const std::string& node : router.live_replicas_of(parsed.command->key)) {
+                    std::cout << " " << node;
+                }
+                std::cout << " ] ";
             }
             std::cout << reply << "\n> " << std::flush;
         }

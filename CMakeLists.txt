@@ -19,6 +19,7 @@ add_library(shardcache_core
   src/protocol/protocol.cpp
   src/ring/hash_ring.cpp
   src/router/router.cpp
+  src/router/failure_detector.cpp
   src/server/execute.cpp
   src/server/server.cpp
 )
@@ -58,6 +59,7 @@ add_executable(shardcache_tests
   tests/test_concurrency.cpp
   tests/test_hash_ring.cpp
   tests/test_router.cpp
+  tests/test_failover.cpp
 )
 target_link_libraries(shardcache_tests PRIVATE shardcache_core GTest::gtest_main)
 shardcache_warnings(shardcache_tests)
