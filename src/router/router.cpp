@@ -22,9 +22,15 @@ std::pair<std::string, std::uint16_t> split_address(const std::string& address) 
     return {address.substr(0, colon), static_cast<std::uint16_t>(port)};
 }
 
+bool is_error(const std::string& reply) {
+    return reply.rfind("ERROR", 0) == 0;
 }
 
-Router::Router(const std::vector<std::string>& nodes, int virtual_nodes) : ring_(virtual_nodes) {
+}
+
+Router::Router(const std::vector<std::string>& nodes, std::size_t replication_factor,
+               int virtual_nodes)
+    : replication_factor_(replication_factor), ring_(virtual_nodes) {
     for (const std::string& node : nodes) {
         std::pair<std::string, std::uint16_t> address = split_address(node);
         net::Socket socket = net::Socket::connect_to(address.first, address.second);
@@ -35,6 +41,10 @@ Router::Router(const std::vector<std::string>& nodes, int virtual_nodes) : ring_
 
 std::optional<std::string> Router::owner_of(const std::string& key) const {
     return ring_.get_node(key);
+}
+
+std::vector<std::string> Router::replicas_of(const std::string& key) const {
+    return ring_.get_nodes(key, replication_factor_);
 }
 
 std::string Router::send_to(const std::string& node, const std::string& line) {
@@ -57,16 +67,33 @@ std::string Router::send_to(const std::string& node, const std::string& line) {
 
 std::string Router::request(const std::string& line) {
     ParseResult parsed = parse_command(line);
-        if (!parsed.command.has_value()) {
-            return "ERROR " + parsed.error;
-        }
-        
-    std::optional<std::string> node = ring_.get_node(parsed.command->key);    
-    if (!node.has_value()) {
-            return "ERROR no nodes";
-        }
-    
-    return send_to(*node, line);
-}
+    if (!parsed.command.has_value()) {
+        return "ERROR " + parsed.error;
+    }
 
+    std::vector<std::string> replicas = replicas_of(parsed.command->key);
+    if (replicas.empty()) {
+        return "ERROR no nodes";
+    }
+
+    if (parsed.command->type == CommandType::Get) {
+        return send_to(replicas[0], line);
+    }
+
+    std::string primary_reply;
+
+    for (const std::string& node : replicas) {
+        std::string reply = send_to(node, line);
+
+        if (is_error(reply)) {
+            return "ERROR write failed on " + node + ": " + reply;
+        }
+
+        if (node == replicas[0]) {
+            primary_reply = reply;
+        }
+    }
+    return primary_reply;
+
+}
 }

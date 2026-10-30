@@ -15,11 +15,14 @@ namespace shardcache {
 
 class Router {
 public:
-    explicit Router(const std::vector<std::string>& nodes, int virtual_nodes = 1000);
+    explicit Router(const std::vector<std::string>& nodes, std::size_t replication_factor = 2,
+                    int virtual_nodes = 1000);
 
     std::string request(const std::string& line);
 
     std::optional<std::string> owner_of(const std::string& key) const;
+
+    std::vector<std::string> replicas_of(const std::string& key) const;
 
 private:
     struct Connection {
@@ -30,6 +33,7 @@ private:
 
     std::string send_to(const std::string& node, const std::string& line);
 
+    std::size_t replication_factor_;
     HashRing ring_;
 
     std::map<std::string, std::unique_ptr<Connection>> connections_;
