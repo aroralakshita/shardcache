@@ -1,5 +1,6 @@
 #pragma once
 
+#include <chrono>
 #include <cstdint>
 #include <string>
 #include <string_view>
@@ -25,6 +26,8 @@ public:
     void send_all(std::string_view data) const;
 
     std::string receive_some() const;
+
+    void set_receive_timeout(std::chrono::milliseconds timeout) const;
 
     std::uint16_t local_port() const;
     bool valid() const;

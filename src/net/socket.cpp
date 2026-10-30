@@ -126,6 +126,14 @@ std::string Socket::receive_some() const {
     return std::string(buffer, static_cast<std::size_t>(received));
 }
 
+void Socket::set_receive_timeout(std::chrono::milliseconds timeout) const {
+    DWORD ms = static_cast<DWORD>(timeout.count()); 
+    if (::setsockopt(os_handle(handle_), SOL_SOCKET, SO_RCVTIMEO,
+                     reinterpret_cast<const char*>(&ms), sizeof(ms)) == SOCKET_ERROR) {
+        throw_last_error("setsockopt(SO_RCVTIMEO)");
+    }
+}
+
 std::uint16_t Socket::local_port() const {
     sockaddr_in addr{};
     int length = sizeof(addr);
