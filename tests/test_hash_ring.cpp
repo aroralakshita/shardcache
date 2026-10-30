@@ -4,6 +4,7 @@
 #include <iomanip>
 #include <iostream>
 #include <map>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -198,4 +199,59 @@ TEST(RingMeasure, RemappedKeysWhenAddingANodeVsModulo) {
 
     EXPECT_LT(ring_pct, 35.0);
     EXPECT_GT(modulo_pct, 65.0);
+}
+
+//replica placement
+
+TEST(ReplicaTest, EmptyRingHasNoReplicas) {
+    HashRing ring;
+    EXPECT_TRUE(ring.get_nodes("a", 2).empty());
+}
+
+TEST(ReplicaTest, FirstReplicaIsThePrimary) {
+    HashRing ring;
+    for (int i = 0; i < 3; ++i) {
+        ring.add_node(node_name(i));
+    }
+    for (const std::string& key : make_keys(1000)) {
+        std::vector<std::string> replicas = ring.get_nodes(key, 2);
+        ASSERT_EQ(replicas.size(), 2u);
+        EXPECT_EQ(replicas[0], *ring.get_node(key));
+    }
+}
+
+TEST(ReplicaTest, ReplicasAreDistinctPhysicalNodes) {
+    HashRing ring;
+    for (int i = 0; i < 4; ++i) {
+        ring.add_node(node_name(i));
+    }
+    for (const std::string& key : make_keys(1000)) {
+        std::vector<std::string> replicas = ring.get_nodes(key, 3);
+        std::set<std::string> unique(replicas.begin(), replicas.end());
+        EXPECT_EQ(unique.size(), 3u) << "duplicate replica for " << key;
+    }
+}
+
+TEST(ReplicaTest, AskingForMoreReplicasThanNodesReturnsEveryNodeOnce) {
+    HashRing ring;
+    ring.add_node("A");
+    ring.add_node("B");
+    std::vector<std::string> replicas = ring.get_nodes("a", 5); 
+    std::set<std::string> unique(replicas.begin(), replicas.end());
+    EXPECT_EQ(replicas.size(), 2u);
+    EXPECT_EQ(unique.size(), 2u);
+}
+
+TEST(ReplicaTest, ReplicaSetsAgreeAcrossRings) {
+    HashRing ring1;
+    HashRing ring2;
+    for (const char* node : {"A", "B", "C"}) {
+        ring1.add_node(node);
+    }
+    for (const char* node : {"B", "C", "A"}) {
+        ring2.add_node(node);
+    }
+    for (const std::string& key : make_keys(500)) {
+        EXPECT_EQ(ring1.get_nodes(key, 2), ring2.get_nodes(key, 2));
+    }
 }

@@ -6,6 +6,7 @@
 #include <optional>
 #include <set>
 #include <string>
+#include <vector>
 
 namespace shardcache {
 class HashRing {
@@ -19,6 +20,8 @@ public:
     void remove_node(const std::string& node);
 
     std::optional<std::string> get_node(const std::string& key) const;
+
+    std::vector<std::string> get_nodes(const std::string& key, std::size_t count) const;
 
     std::size_t node_count() const;
 
