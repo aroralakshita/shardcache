@@ -20,6 +20,10 @@ std::uint16_t Server::port() const {
     return listener_.local_port();
 }
 
+void Server::simulate_failure() {
+    failed_ = true;
+}
+
 void Server::serve_one_client() {
     net::Socket client = listener_.accept();
     serve_client(client);
@@ -30,7 +34,7 @@ void Server::serve_client(net::Socket& client) {
         net::LineReader reader(client);
         while (true) {
             std::optional<std::string> line = reader.read_line();
-            if (!line.has_value()) {
+            if (!line.has_value() || failed_) {
                 break;
             }
             ParseResult parsed = parse_command(*line);

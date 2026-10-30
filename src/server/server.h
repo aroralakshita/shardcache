@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <cstdint>
 
 #include "cache/store.h"
@@ -17,11 +18,14 @@ public:
 
     void run();
 
+    void simulate_failure();
+
 private:
     void serve_client(net::Socket& client);
 
     net::Socket listener_;
     Store& store_;
+    std::atomic<bool> failed_{false};
 };
 
 }
