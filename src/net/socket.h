@@ -2,6 +2,7 @@
 
 #include <chrono>
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <string_view>
 
@@ -19,7 +20,10 @@ public:
 
     static Socket listen_on(std::uint16_t port);
 
-    static Socket connect_to(const std::string& host, std::uint16_t port);
+    //with a timeout, gives up after the specified duration instead of waiting for the
+    //OS's connection attempt to finish
+    static Socket connect_to(const std::string& host, std::uint16_t port,
+                             std::optional<std::chrono::milliseconds> timeout = std::nullopt);
 
     Socket accept() const;
 

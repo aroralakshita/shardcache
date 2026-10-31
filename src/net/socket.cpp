@@ -78,7 +78,8 @@ Socket Socket::listen_on(std::uint16_t port) {
     return s;
 }
 
-Socket Socket::connect_to(const std::string& host, std::uint16_t port) {
+Socket Socket::connect_to(const std::string& host, std::uint16_t port,
+                          std::optional<std::chrono::milliseconds> timeout) {
     ensure_winsock();
     Socket s(static_cast<std::uintptr_t>(::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)));
     if (!s.valid()) {
@@ -91,9 +92,52 @@ Socket Socket::connect_to(const std::string& host, std::uint16_t port) {
     if (inet_pton(AF_INET, host.c_str(), &addr.sin_addr) != 1) {
         throw std::runtime_error("not an IPv4 address: " + host);
     }
-    if (::connect(os_handle(s.handle_), reinterpret_cast<const sockaddr*>(&addr), sizeof(addr)) ==
-        SOCKET_ERROR) {
+    SOCKET handle = os_handle(s.handle_);
+
+    if (!timeout.has_value()) {
+        if (::connect(handle, reinterpret_cast<const sockaddr*>(&addr), sizeof(addr)) ==
+            SOCKET_ERROR) {
+            throw_last_error("connect");
+        }
+        return s;
+    }
+
+    //timed connect: switch to non-blocking, start the connect, then wait with select()
+    //for at most `timeout`. Windows reports a failed connect in the "exceptions" set
+    u_long non_blocking = 1;
+    if (::ioctlsocket(handle, FIONBIO, &non_blocking) == SOCKET_ERROR) {
+        throw_last_error("ioctlsocket");
+    }
+    if (::connect(handle, reinterpret_cast<const sockaddr*>(&addr), sizeof(addr)) ==
+            SOCKET_ERROR &&
+        WSAGetLastError() != WSAEWOULDBLOCK) {
         throw_last_error("connect");
+    }
+
+    fd_set connected;
+    FD_ZERO(&connected);
+    FD_SET(handle, &connected);
+    fd_set failed;
+    FD_ZERO(&failed);
+    FD_SET(handle, &failed);
+    timeval wait{};
+    wait.tv_sec = static_cast<long>(timeout->count() / 1000);
+    wait.tv_usec = static_cast<long>((timeout->count() % 1000) * 1000);
+
+    int ready = ::select(0, nullptr, &connected, &failed, &wait);  //first argument is ignored on Windows
+    if (ready == SOCKET_ERROR) {
+        throw_last_error("select");
+    }
+    if (ready == 0) {
+        throw std::runtime_error("connect timed out");
+    }
+    if (FD_ISSET(handle, &failed)) {
+        throw std::runtime_error("connect refused");
+    }
+
+    u_long blocking = 0;  //back to normal blocking mode for send/recv
+    if (::ioctlsocket(handle, FIONBIO, &blocking) == SOCKET_ERROR) {
+        throw_last_error("ioctlsocket");
     }
     return s;
 }

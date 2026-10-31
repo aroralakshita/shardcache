@@ -33,10 +33,14 @@ bool FailureDetector::is_alive(const std::string& node) const {
 }
 
 void FailureDetector::run() {
+    //fixed-rate rounds: each round starts one interval after the previous round STARTED,
+    //so a slow round (like waiting on a dead node) doesn't push every later round back
+    auto next_round = std::chrono::steady_clock::now();
     while (true) {
         check_once();
+        next_round += interval_;
         std::unique_lock<std::mutex> lock(stop_mutex_);
-        if (stop_cv_.wait_for(lock, interval_, [this] { return stopping_; })) {
+        if (stop_cv_.wait_until(lock, next_round, [this] { return stopping_; })) {
             return;
         }
     }
@@ -64,7 +68,7 @@ bool FailureDetector::ping(const std::string& node) {
         auto it = connections_.find(node);
         if (it == connections_.end()) {
             std::pair<std::string, std::uint16_t> address = split_address(node);
-            net::Socket socket = net::Socket::connect_to(address.first, address.second);
+            net::Socket socket = net::Socket::connect_to(address.first, address.second, interval_);
             socket.set_receive_timeout(interval_);
             it = connections_.emplace(node, std::make_unique<Connection>(std::move(socket))).first;
         }
