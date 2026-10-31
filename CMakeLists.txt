@@ -34,6 +34,10 @@ add_executable(shardcache_server src/server_main.cpp)
 target_link_libraries(shardcache_server PRIVATE shardcache_core)
 shardcache_warnings(shardcache_server)
 
+add_executable(shardcache_bench src/bench_main.cpp)
+target_link_libraries(shardcache_bench PRIVATE shardcache_core)
+shardcache_warnings(shardcache_bench)
+
 add_executable(shardcache_cli src/cli_main.cpp)
 target_link_libraries(shardcache_cli PRIVATE shardcache_core)
 shardcache_warnings(shardcache_cli)
@@ -60,6 +64,7 @@ add_executable(shardcache_tests
   tests/test_hash_ring.cpp
   tests/test_router.cpp
   tests/test_failover.cpp
+  tests/test_stats.cpp
 )
 target_link_libraries(shardcache_tests PRIVATE shardcache_core GTest::gtest_main)
 shardcache_warnings(shardcache_tests)
