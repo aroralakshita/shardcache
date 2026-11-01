@@ -65,6 +65,7 @@ add_executable(shardcache_tests
   tests/test_router.cpp
   tests/test_failover.cpp
   tests/test_stats.cpp
+  tests/test_line_reader.cpp
 )
 target_link_libraries(shardcache_tests PRIVATE shardcache_core GTest::gtest_main)
 shardcache_warnings(shardcache_tests)
