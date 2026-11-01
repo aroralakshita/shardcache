@@ -141,3 +141,49 @@ TEST(FailoverTest, LiveReplicasFollowThePreferenceList) {
     t2.join();
     t3.join();
 }
+
+TEST(FailoverTest, WriteFailsWhenFewerThanRLiveReplicasRemain) {
+    Store store1(100), store2(100);
+    Server node1(0, store1), node2(0, store2);
+    std::vector<std::thread> threads;
+    for (Server* server : {&node1, &node2}) {
+        threads.emplace_back([server] { server->serve_one_client(); });  //router's connection
+        threads.emplace_back([server] { server->serve_one_client(); });  //detector's connection
+    }
+    std::string a1 = address_of(node1);
+    std::string a2 = address_of(node2);
+
+    {
+        Router router({a1, a2}, 2);
+        ASSERT_EQ(router.request("SET before 1"), "OK");
+        router.enable_failure_detection(100ms, 3);
+
+        node2.simulate_failure();
+        ASSERT_TRUE(wait_until([&] { return !router.is_alive(a2); }, 5000ms));
+
+        //only one live replica is left so a write can't reach R=2 copies: it must fail
+        std::string reply = router.request("SET after 2");
+        EXPECT_EQ(reply.rfind("ERROR", 0), 0u) << reply;
+        EXPECT_FALSE(store1.get("after").has_value());
+
+        EXPECT_EQ(router.request("GET before"), "VALUE 1");
+    }
+
+    for (std::thread& thread : threads) {
+        thread.join();
+    }
+}
+
+TEST(FailoverTest, ReplicationFactorIsCappedAtClusterSize) {
+    Store store(100);
+    Server node(0, store);
+    std::thread t([&node] { node.serve_one_client(); });
+
+    {
+        Router router({address_of(node)}, 2);
+        EXPECT_EQ(router.replicas_of("a").size(), 1u);
+        EXPECT_EQ(router.request("SET a 1"), "OK");
+    }
+
+    t.join();
+}
