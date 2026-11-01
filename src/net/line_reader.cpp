@@ -8,14 +8,19 @@ std::optional<std::string> LineReader::read_line() {
     while (true) {
         std::size_t newline = buffer_.find('\n');
         if (newline != std::string::npos) {
-            std::string line = buffer_.substr(0, newline);
-            buffer_.erase(0, newline + 1);
-            if (!line.empty() && line.back() == '\r') {
-                line.pop_back();
+            std::size_t length = newline;
+            if (length > 0 && buffer_[length - 1] == '\r') {
+                --length;
             }
+            if (length > max_line_length_) {
+                throw std::runtime_error("line too long");
+            }
+            std::string line = buffer_.substr(0, length);
+            buffer_.erase(0, newline + 1);
             return line;
         }
-        if (buffer_.size() > kMaxLineLength) {
+        // no newline yet: +1 leaves room for a '\r' whose '\n' hasn't arrived
+        if (buffer_.size() > max_line_length_ + 1) {
             throw std::runtime_error("line too long");
         }
 
