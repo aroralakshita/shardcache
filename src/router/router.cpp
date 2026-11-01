@@ -1,5 +1,6 @@
 #include "router/router.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <exception>
 #include <stdexcept>
@@ -26,6 +27,7 @@ Router::Router(const std::vector<std::string>& nodes, std::size_t replication_fa
         connections_[node] = std::make_unique<Connection>(std::move(socket));
         ring_.add_node(node);
     }
+    replication_factor_ = std::min(replication_factor_, ring_.node_count());
 }
 
 std::optional<std::string> Router::owner_of(const std::string& key) const {
@@ -94,6 +96,11 @@ std::string Router::request(const std::string& line) {
 
     if (parsed.command->type == CommandType::Get) {
         return send_to(replicas[0], line);
+    }
+
+    //strict guarantee: OK means R copies. too few live nodes -> refuse the write
+    if (replicas.size() < replication_factor_) {
+        return "ERROR not enough live replicas";
     }
 
     std::string primary_reply;
